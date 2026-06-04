@@ -34,10 +34,10 @@ def f : Nat -> Nat
 ```
 
 However, this encoding breaks tactics like `grind`, `fun_induction`,
-`fun_cases`, `cases`, `split`, `rw`, etc. because attempting to substitute
-an equality `n = m` into the term `parity n : Parity n` simultaneously
-rewrites both the term and its type, breaking rewrite. It is also difficult
-to use `match` without providing an explicit motive.
+`fun_cases`, `cases`, `split`, `rw`, etc. because attempting to
+substitute an equality `n = m` into the term `parity n : Parity
+n` simultaneously rewrites both the term and its type. It is also
+difficult to use `match` without providing an explicit motive.
 
 The other encoding is a straightforward recursive
 definition of `even` and is more amenable to automation.
@@ -69,11 +69,11 @@ Enter the right directory and run
 nix run
 ```
 
-to check the proof (this uses `comparator`, `landrun`, and `systemd-run`
-for runtime isolation). Alternatively, check the proofs with `nix build
-{even,parity,mixed}`. Building in the Nix sandbox provides more guarantees
-on dependency management and reproducibility but less on runtime sandboxing,
-so the two checks are complementary.
+to check the proof (which uses `landrun` and `systemd-run`
+for runtime isolation). Alternatively, check the proofs with
+`nix build {even,parity,mixed}`. Building in the Nix sandbox
+provides more reproducibility guarantees but is not designed
+for security, so the two checks are complementary.
 
 ## The letter
 
