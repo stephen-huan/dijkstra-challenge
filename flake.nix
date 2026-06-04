@@ -24,7 +24,7 @@
         packages.${system} = {
           even = pkgs.callPackage ./pkgs/1-even inputs;
           parity = pkgs.callPackage ./pkgs/2-parity inputs;
-          mixed = pkgs.callPackage ./pkgs/3-parity inputs;
+          mixed = pkgs.callPackage ./pkgs/3-mixed inputs;
         };
 
         apps.${system}.default = {
