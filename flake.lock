@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1780573408,
-        "narHash": "sha256-n3h6UEb2czcRGcsqK0r6gS7iplZ3DvXiRYEoNt79Dxg=",
+        "lastModified": 1780698845,
+        "narHash": "sha256-iCQRnF2DDx6aFIdKcSYmTcAR1whQ4FN3J4iKa96RWOU=",
         "owner": "stephen-huan",
         "repo": "maipkgs",
-        "rev": "5186822dc131315eab50ad306be91c0bcd7f3b52",
+        "rev": "fe8af4d65027d91aea289b835429d0ecff6b0a4f",
         "type": "github"
       },
       "original": {
