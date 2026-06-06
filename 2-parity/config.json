@@ -2,6 +2,6 @@
     "challenge_module": "Challenge",
     "solution_module": "Solution",
     "theorem_names": ["f_eq_g"],
-    "permitted_axioms": ["propext", "Quot.sound"],
-    "enable_nanoda": true
+    "permitted_axioms": ["Quot.sound"],
+    "enable_nanoda": false
 }

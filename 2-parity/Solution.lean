@@ -242,6 +242,5 @@ decreasing_by
     rw [<- p]
     exact Nat.succ_lt_succ $ Nat.succ_lt_succ $ n_lt_2np1
 
--- I am not sure where propext is coming from; probably some attached attribute
 -- Quot.sound comes from unfolding f and g, which I don't know how to remove
 #print axioms f_eq_g
