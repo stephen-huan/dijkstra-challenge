@@ -28,6 +28,12 @@ theorem n_lt_2np1 {n : Nat} : n < 2 * n + 1 := match n with
   | 0 => by decide
   | _ + 1 => Nat.le.step $ Nat.succ_lt_succ $ n_lt_2np1
 
+theorem n_le_2n {n : Nat}: n ≤ 2 * n := calc n
+  _ ≤ n + n := Nat.le_add_right n n
+  _ = 0 + n + n := by rw [Nat.add_comm 0 n]; rfl
+  _ = n * 2 := rfl
+  _ = 2 * n := Nat.mul_comm n 2
+
 @[simp low]
 def f : Nat -> Nat
 | 0 => 0
@@ -35,35 +41,31 @@ def f : Nat -> Nat
 | m@(_ + 2) => match m, parity m with
   | .(2 * n),     .even n => f n
   | .(2 * n + 1), .odd  n => f n + f (n + 1)
-termination_by n => n
+-- https://github.com/leanprover/lean4/pull/7965
+termination_by n => (n, 0)
 decreasing_by
   all_goals rename_i a _ p
-  . change n < a + 2
+  . apply Prod.Lex.left
+    change n < a + 2
     rw [<- p]
     exact n_lt_2n p
-  . change n < a + 2
+  . apply Prod.Lex.left
+    change n < a + 2
     rw [<- p]
     exact n_lt_2np1
-  . change n + 1 < a + 2
+  . apply Prod.Lex.left
+    change n + 1 < a + 2
     rw [<- p]
     exact Nat.succ_lt_succ $ n_lt_2n $ congrArg Nat.pred p
 
-@[simp]
-def g (n : Nat) (a : Nat := 1) (b : Nat := 0) :=
-  match n with
-  | 0 => b
-  | n@(_ + 1) => match n, parity n with
-    | .(2 * h),     .even h => g h (a + b) b
-    | .(2 * h + 1), .odd  h => g h a (b + a)
-termination_by n
-decreasing_by
-  all_goals rename_i m _ p
-  . change h < m + 1
-    rw [<- p]
-    exact n_lt_2n p
-  . change h < m + 1
-    rw [<- p]
-    exact n_lt_2np1
+def g (n : Nat) (a : Nat := 1) (b : Nat := 0) (fuel : Nat := n) :=
+  match n, fuel with
+  | _, 0
+  | 0, _ => b
+  | n@(_ + 1), fuel + 1 => match n, parity n with
+    | .(2 * h),     .even h => g h (a + b) b fuel
+    | .(2 * h + 1), .odd  h => g h a (b + a) fuel
+termination_by structural fuel
 
 -- adapted from Init.Data.Nat.Basic
 -- probably not the most efficient for the terminal goals
@@ -109,6 +111,28 @@ theorem mul_sub_left_distrib (n m k : Nat) : n * (m - k) = n * m - n * k := by
 theorem one_lt_2n (n : Nat) (h : 0 < n) : 1 < 2 * n := match n with
   | 0 => False.elim $ Nat.lt_irrefl 0 h
   | m + 1 => Nat.lt_add_of_pos_left $ Nat.add_one_pos (2 * m)
+
+theorem add_left_cancel {n m k : Nat} : n + m = n + k → m = k := by
+  induction n with
+  | zero => intro h; (repeat rw [Nat.add_comm 0 _] at h); exact h
+  | succ n ih =>
+    intro h
+    conv at h =>
+      congr; all_goals rw [Nat.add_assoc, Nat.add_comm 1 _, <- Nat.add_assoc]
+    exact ih (congrArg Nat.pred h)
+
+theorem le_of_add_le_add_left {a b c : Nat} (h : a + b ≤ a + c) : b ≤ c := by
+  match Nat.le.dest h with
+  | ⟨d, hd⟩ =>
+    apply @Nat.le.intro _ _ d
+    rw [Nat.add_assoc] at hd
+    apply add_left_cancel hd
+
+theorem le_of_add_le_add_right {a b c : Nat} : a + b ≤ c + b → a ≤ c := by
+  rw [Nat.add_comm _ b, Nat.add_comm _ b]
+  apply le_of_add_le_add_left
+
+-- user theorems
 
 theorem one_ne_2n (n : Nat) : 1 ≠ 2 * n := match n with
   | 0 => by decide
@@ -164,6 +188,51 @@ theorem par2 {n : Nat} : parity (2 * n + 2) = Parity.even (n + 1) := par_equal
 @[simp]
 theorem par3 {n : Nat} : parity (2 * n + 3) = Parity.odd (n + 1) := par_equal
 
+theorem g_fuel (n a b fuel : Nat) (h : n ≤ fuel) : g n a b fuel = g n a b :=
+  match n, fuel with
+  | n, 0 => by rw [Nat.le_antisymm h (Nat.zero_le ..)]
+  | 0, fuel => by cases fuel <;> rfl
+  | n@(m + 1), fuel + 1 => match (
+    motive := (n : Nat) -> Parity n -> n = m
+      -> g (n + 1) a b (fuel + 1) = g (n + 1) a b
+  ) m, parity m, rfl with
+    | .(2 * h), .even h, _ => by
+      simpa [g, g_fuel h a (b + a) (2 * h) n_le_2n]
+        using g_fuel h a (b + a) fuel (calc h
+          _ ≤ 2 * h := n_le_2n
+          _ = m := by assumption
+          m ≤ fuel := le_of_add_le_add_right (by assumption)
+        )
+    | .(2 * h + 1), .odd h, _ => by
+      unfold g
+      simpa [
+        g_fuel (h + 1) (a + b) b (2 * h + 1) (Nat.add_le_add_right n_le_2n 1)
+      ] using g_fuel (h + 1) (a + b) b fuel (calc h + 1
+        _ ≤ 2 * h + 1 := Nat.add_le_add_right n_le_2n 1
+        _ = m := by assumption
+        m ≤ fuel := le_of_add_le_add_right (by assumption)
+      )
+termination_by n
+decreasing_by
+  iterate 2
+    change h < m + 1
+    rename 2 * h = m => p
+    rw [<- p]
+    exact n_lt_2np1
+  iterate 2
+    change h + 1 < m + 1
+    rename 2 * h + 1 = m => p
+    rw [<- p]
+    exact Nat.succ_lt_succ $ n_lt_2np1
+
+@[simp]
+theorem fuel_2n {n a b : Nat} : g n a b = g n a b (2 * n) :=
+  Eq.symm $ g_fuel n a b (2 * n) n_le_2n
+
+@[simp]
+theorem fuel_2np1 {n a b : Nat} : g (n + 1) a b (2 * n + 1) = g (n + 1) a b :=
+  g_fuel (n + 1) a b (2 * n + 1) (Nat.add_le_add_right n_le_2n 1)
+
 theorem swap {a b c d : Nat} : (a + b) + (c + d) = (a + c) + (b + d) := by rw [
   Nat.add_assoc,
   <- Nat.add_assoc b c d,
@@ -180,10 +249,10 @@ theorem g_ab (n a b c d : Nat) : g n a b + g n c d = g n (a + c) (b + d) :=
       -> g (n + 1) a b + g (n + 1) c d = g (n + 1) (a + c) (b + d)
   ) m, parity m, rfl with
     | .(2 * h), .even h, _ => by
-      simpa [(swap : (b + a) + (d + c) = (b + d) + (a + c))]
+      simpa [g, (swap : (b + a) + (d + c) = (b + d) + (a + c))]
         using g_ab h a (b + a) c (d + c)
     | .(2 * h + 1), .odd h, _ => by
-      simpa [(swap : (a + b) + (c + d) = (a + c) + (b + d))]
+      unfold g; simpa [(swap : (a + b) + (c + d) = (a + c) + (b + d))]
         using g_ab (h + 1) (a + b) b (c + d) d
 termination_by n
 decreasing_by
@@ -198,18 +267,15 @@ decreasing_by
 
 theorem g_nb (n b : Nat) : g n 1 b + g (n + 1) = g n 1 (b + 1) :=
   match n with
-  | 0 => by
-    unfold g
-    have : parity 1 = Parity.odd 0 := par_equal
-    rw [this]
-    unfold g
-    rfl
+  | 0 => rfl
   | n@(m + 1) => match (
     motive := (n : Nat) -> Parity n -> n = m
       -> g (n + 1) 1 b + g (n + 2) = g (n + 1) 1 (b + 1)
   ) m, parity m, rfl with
-    | .(2 * h), .even h, _ => by simpa using g_nb h (b + 1)
-    | .(2 * h + 1), .odd h, _ => by simpa using g_ab (h + 1) (1 + b) b 1 1
+    | .(2 * h), .even h, _ => by unfold g; simpa using g_nb h (b + 1)
+    | .(2 * h + 1), .odd h, _ => by
+      unfold g
+      simpa using g_ab (h + 1) (1 + b) b 1 1
 termination_by n
 decreasing_by
   . change h < m + 1
@@ -219,13 +285,14 @@ decreasing_by
 
 theorem f_eq_g (n : Nat) : f n = g n :=
   match n with
-  | 0 => by unfold f g; rfl
-  | 1 => by unfold f g g; rfl
+  | 0 => by unfold f; rfl
+  | 1 => by unfold f; rfl
   | n@(m + 2) => match (
     motive := (n : Nat) -> Parity n -> n = m -> f (n + 2) = g (n + 2)
   ) m, parity m, rfl with
-    | .(2 * h), .even h, _ => by simpa using f_eq_g (h + 1)
+    | .(2 * h), .even h, _ => by unfold g; simpa using f_eq_g (h + 1)
     | .(2 * h + 1), .odd h, _ => by
+      unfold g
       simpa [f_eq_g (h + 1), f_eq_g (h + 2)] using g_nb (h + 1) 0
 termination_by n
 decreasing_by
@@ -242,5 +309,4 @@ decreasing_by
     rw [<- p]
     exact Nat.succ_lt_succ $ Nat.succ_lt_succ $ n_lt_2np1
 
--- Quot.sound comes from unfolding f and g, which I don't know how to remove
 #print axioms f_eq_g
